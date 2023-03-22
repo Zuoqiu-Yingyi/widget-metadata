@@ -1,0 +1,40 @@
+{
+    "alias": "别名",
+    "attributes": {
+        "add": "添加自定义属性",
+        "basic": "基本属性",
+        "custom": "自定义属性",
+        "del": "删除自定义属性",
+        "other": "其他属性"
+    },
+    "bookmark": "书签",
+    "created": "创建",
+    "editable": "可编辑",
+    "help": {
+        "alias": "文档别名",
+        "bookmark": "文档书签",
+        "created": "文档创建时间",
+        "icon": "文档图标",
+        "id": "文档 ID",
+        "memo": "文档备注",
+        "name": "文档命名",
+        "scroll": "文档浏览位置",
+        "tags": "文档标签",
+        "title": "文档标题",
+        "title-img": "文档题头图",
+        "updated": "文档更新时间"
+    },
+    "icon": "图标",
+    "id": "ID",
+    "memo": "备注",
+    "name": "命名",
+    "notification": {
+        "attribute-key-invalid": "自定义属性名无效！"
+    },
+    "reload": "重新加载",
+    "scroll": "位置",
+    "tags": "标签",
+    "title": "标题",
+    "title-img": "题头图",
+    "updated": "更新"
+}
