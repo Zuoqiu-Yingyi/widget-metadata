@@ -1,10 +1,25 @@
 # 更改日志 | CHANGE LOG
 
+## v0.2.0 | 2023-03-23
+
+- [v0.1.1 <=> v0.2.0](https://github.com/Zuoqiu-Yingyi/widget-metadata/compare/v0.1.1...v0.2.0)
+- 转义文档别名中的 `,` | Escape `,` in document alias.
+- 添加折叠/展开按钮 | Add collapse/expand button.
+- 新插入的挂件块支持自动重新加载 | Newly inserted widget block supports automatic reloading.
+- 添加未知属性编辑功能 | Add edit function for unknown attribute.
+- 调整响应式布局样式 | Adjust responsive layout style.
+- 添加导出标签页 | Add export tab.
+- 启用 Arco 组件的国际化功能 | Enable internationalization of Arco components.
+- 实现导出标签页 | Implement export tab.
+- 添加元数据控件 | Add a metadata control.
+- 实现元数据与配置保存功能 | Implement metadata and configuration saving functions.
+- 完善 `README.md` | Improve `README.md`.
+
 ## v0.1.1 | 2023-03-23
 
-- [v0.1.0 <=> v0.1.1](https://github.com/Zuoqiu-Yingyi/siyuan-theme-dark-plus/compare/v0.1.0...v0.1.1)
+- [v0.1.0 <=> v0.1.1](https://github.com/Zuoqiu-Yingyi/widget-metadata/compare/v0.1.0...v0.1.1)
 - 完善 `README.md` | Improve `README.md`.
-- 实现文档块属性 `YFM` 序列化方法 | Implement document block attribute `YFM` serialization method.
+- 实现文档块属性 `YFM` 序列化方法 | Implement document block attributes `YFM` serialization method.
 
 ## v0.1.0 | 2023-03-22
 

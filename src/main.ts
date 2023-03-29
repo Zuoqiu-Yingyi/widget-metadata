@@ -11,31 +11,19 @@ import ArcoVueIcon from "@arco-design/web-vue/es/icon";
 import App from "./App.vue";
 
 import { Client } from "./client/Client";
-import {
-    mapLang,
-    mapLocal,
-} from "./utils/language";
+import { mapLang } from "./utils/language";
 import { setThemeMode } from "./utils/theme";
 
 /* 类型 */
 import { ISiyuan } from "./types/siyuan/siyuan";
-import {
-    IData,
-    IAL,
-} from "./types/data";
+import { IData } from "./types/data";
 
 /* 语言包 */
 import en from "./locales/en.json";
 import zh_Hans from "./locales/zh-Hans.json";
 import zh_Hant from "./locales/zh-Hant.json";
 
-(async () => {
-    const messages = {
-        "en": en,
-        "zh-Hans": zh_Hans,
-        "zh-Hant": zh_Hant,
-    };
-
+async function init() {
     /* 配置 */
     const data = reactive<IData>({
         url: new URL(globalThis.location.href),
@@ -44,6 +32,10 @@ import zh_Hant from "./locales/zh-Hant.json";
         doc_notebook: "",
         block_id: "",
         block_ial: {},
+        block_config: {
+            rows: [],
+            retain: false,
+        },
         paths: [],
         hpaths: [],
         ial: {},
@@ -109,9 +101,18 @@ import zh_Hant from "./locales/zh-Hant.json";
     const block_ial = (await client.getBlockAttrs({ id: data.block_id })).data;
     Object.assign(data.block_ial, block_ial);
 
+    /* 读取保存在挂件块属性中的配置 */
+    Object.assign(data.block_config, JSON.parse(block_ial["custom-config"] ?? null));
+
     /* 本地化 */
     const locale = mapLang(siyuan.config.lang); // 语言
     const fallbackLocale = "en"; // 回退语言
+
+    const messages = {
+        "en": en,
+        "zh-Hans": zh_Hans,
+        "zh-Hant": zh_Hant,
+    };
 
     const i18n = createI18n({
         locale, // set locale
@@ -142,4 +143,14 @@ import zh_Hant from "./locales/zh-Hant.json";
     const id = "app";
     globalThis.document.body.insertAdjacentHTML("beforeend", `<div id="${id}"></div>`);
     app.mount(`#${id}`);
-})();
+
+    return app;
+}
+
+init().catch(error => {
+    console.warn(error);
+
+    if (import.meta.env.PROD) { // 生产环境
+        setTimeout(() => globalThis.location.reload(), 1000); // 重新加载
+    }
+})

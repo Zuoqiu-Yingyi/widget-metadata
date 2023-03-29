@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { inject, ref, shallowRef, reactive, shallowReactive, toRaw, onUpdated } from "vue";
+import { inject, ref, shallowRef, reactive, shallowReactive, toRaw, onUpdated, watch, toRef } from "vue";
 import { I18n, VueI18nTranslation } from "vue-i18n";
 import moment from "moment";
 
 import { Client } from "./../client/Client";
 import { notify } from "./../utils/notify";
+import { tokenSplit } from "./../utils/string";
 
 import { IForm, IAttr } from "./../types/form";
-import { IData } from "./../types/data";
+import { IData, IAL } from "./../types/data";
 
 const i18n = inject("i18n") as I18n;
 const t = i18n.global.t as VueI18nTranslation;
@@ -16,17 +17,120 @@ const props = defineProps<{
     editable: boolean;
     client: Client;
     data: IData;
+    activeKey: number[];
 }>();
 
 const emits = defineEmits<{
-    (e: "updated", form: IForm): void; // 界面更新
+    (e: "updated"): void; // 界面更新
+    (e: "update:activeKey", activeKey: number[]): void; // 折叠面板更新
 }>();
 
-/* 组件更新完成 */
+/* 推送组件更新 */
 function updated(): void {
-    emits("updated", form);
+    emits("updated");
 }
 
+const active_key = ref(props.activeKey);
+
+/* 监听折叠面板更改 */
+watch(
+    () => props.activeKey,
+    value => {
+        active_key.value = value;
+    },
+    {
+        flush: "post",
+    },
+);
+
+/* 推送折叠面板更改 */
+watch(
+    active_key,
+    value => {
+        emits("update:activeKey", value);
+    },
+    {
+        flush: "post",
+    },
+);
+
+/* 属性表单 */
+const form = reactive(
+    (() => {
+        const form: IForm = {
+            basics: {
+                created: "",
+                updated: "",
+                title: "",
+                name: "",
+                alias: [],
+                tags: [],
+                bookmark: "",
+                memo: "",
+            },
+            customs: [],
+            others: {
+                id: "",
+                icon: "",
+                scroll: "",
+                "title-img": "",
+            },
+            unknowns: {},
+        };
+        for (const key in props.data.ial) {
+            const value = props.data.ial[key];
+            switch (key) {
+                /* 基本属性 */
+                case "created":
+                case "updated":
+                    form.basics[key] = timestampFormat(value);
+                    break;
+                case "alias":
+                case "tags":
+                    form.basics[key] = tokenSplit(value);
+                    break;
+                case "title":
+                case "name":
+                case "bookmark":
+                case "memo":
+                    form.basics[key] = value;
+                    break;
+
+                /* 其他属性 */
+                case "id":
+                case "icon":
+                case "scroll":
+                case "title-img":
+                    form.others[key] = value;
+                    break;
+
+                default:
+                    switch (true) {
+                        /* 自定义属性 */
+                        case key.startsWith("custom-"):
+                            const _key = key.replace(/^custom-/, "");
+                            form.customs.push({
+                                _key,
+                                key: _key,
+                                value: value,
+                            });
+                            break;
+
+                        /* 未知属性 */
+                        default:
+                            form.unknowns[key] = value;
+                            break;
+                    }
+            }
+        }
+        if (import.meta.env.DEV) {
+            console.log(form);
+        }
+        return form;
+    })(),
+);
+
+/* 书签选项 */
 const loading = ref(true); // 书签选项是否加载完成
 const options = shallowRef<string[]>([]); // 书签选项
 props.client
@@ -43,41 +147,6 @@ props.client
 function timestampFormat(timestamp: string): string {
     return moment(timestamp, "YYYYMMDDHHmmss").format("YYYY-MM-DD  HH:mm:ss  ddd");
 }
-
-/* token 分割 */
-function tokenSplit(token: string): string[] {
-    return token
-        .replaceAll("\\,", "\n")
-        .split(",")
-        .map(t => t.replaceAll("\n", ","));
-}
-
-const form = reactive<IForm>({
-    created: props.data.ial.created ? timestampFormat(props.data.ial.created) : "",
-    updated: props.data.ial.updated ? timestampFormat(props.data.ial.updated) : "",
-    title: props.data.ial.title ?? "",
-    name: props.data.ial.name ?? "",
-    alias: props.data.ial.alias ? tokenSplit(props.data.ial.alias) : [],
-    tags: props.data.ial.tags ? tokenSplit(props.data.ial.tags) : [],
-    bookmark: props.data.ial.bookmark ?? "",
-    memo: props.data.ial.memo ?? "",
-
-    customs: Object.keys(props.data.ial)
-        .filter(k => k.startsWith("custom-"))
-        .map(k => {
-            const key = k.replace(/^custom-/, "");
-            return {
-                key,
-                _key: key,
-                value: props.data.ial[k],
-            };
-        }),
-
-    id: props.data.ial.id ?? "",
-    icon: props.data.ial.icon ?? "",
-    scroll: props.data.ial.scroll ?? "",
-    "title-img": props.data.ial["title-img"] ?? "",
-});
 
 /* 文档重命名 */
 function renameDoc(value: string): void {
@@ -105,7 +174,19 @@ function renameDoc(value: string): void {
 
 /* 更新指定原生属性 */
 function updateNativeAttr(key: string, value: string | string[]): void {
-    const v = Array.isArray(value) ? value.join(",") : value;
+    const v = (() => {
+        switch (key) {
+            case "alias":
+                return (value as string[]).map(a => a.replaceAll(",", "\\,")).join(",");
+
+            default:
+                if (Array.isArray(value)) {
+                    return value.join(",");
+                } else {
+                    return value;
+                }
+        }
+    })();
 
     if (props.data.ial[key] !== v) {
         props.client
@@ -160,6 +241,7 @@ function onclickDel(index: number): void {
                 if (import.meta.env.DEV) {
                     console.log(`Form.onclickDel ${key}`);
                 }
+                delete props.data.ial[key];
                 form.customs.splice(index, 1);
             })
             .catch(error => {
@@ -270,12 +352,22 @@ function saveAllCustomAttrs(): void {
         });
 }
 
+/* 折叠所有面板 */
+function collapse(): void {
+    active_key.value = [];
+}
+
+/* 展开所有面板 */
+function expand(): void {
+    active_key.value = [1, 2, 3];
+}
+
 /* 组件更新 */
 onUpdated(() => {
     if (import.meta.env.DEV) {
         console.log("Form.onUpdated");
     }
-    updated();
+    setTimeout(updated, 250);
 });
 </script>
 
@@ -289,14 +381,38 @@ onUpdated(() => {
     >
         <a-collapse
             class="collapse"
-            :default-active-key="[1, 2]"
+            v-model:active-key="active_key"
         >
             <a-collapse-item
                 class="collapse-item"
                 :header="$t('attributes.basic')"
                 :key="1"
             >
-                <a-row :gutter="16">
+                <template #extra>
+                    <a-button
+                        v-if="active_key.length === 0"
+                        :title="$t('expand')"
+                        @click.stop="expand"
+                        size="mini"
+                        type="primary"
+                    >
+                        <template #icon>
+                            <icon-expand />
+                        </template>
+                    </a-button>
+                    <a-button
+                        v-else
+                        :title="$t('collapse')"
+                        @click.stop="collapse"
+                        size="mini"
+                        type="primary"
+                    >
+                        <template #icon>
+                            <icon-shrink />
+                        </template>
+                    </a-button>
+                </template>
+                <a-row :gutter="8">
                     <a-col
                         :xs="24"
                         :sm="12"
@@ -305,12 +421,14 @@ onUpdated(() => {
                         <a-form-item field="created">
                             <template #label>
                                 {{ $t("created") }}
+                                <br />
+                                <span class="attr-key">[created]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.created") }}
                             </template>
                             <a-input
-                                v-model:model-value="form.created"
+                                v-model:model-value="form.basics.created"
                                 disabled
                                 allow-clear
                             />
@@ -324,12 +442,14 @@ onUpdated(() => {
                         <a-form-item field="updated">
                             <template #label>
                                 {{ $t("updated") }}
+                                <br />
+                                <span class="attr-key">[updated]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.updated") }}
                             </template>
                             <a-input
-                                v-model:model-value="form.updated"
+                                v-model:model-value="form.basics.updated"
                                 disabled
                                 allow-clear
                             />
@@ -343,12 +463,14 @@ onUpdated(() => {
                         <a-form-item field="title">
                             <template #label>
                                 {{ $t("title") }}
+                                <br />
+                                <span class="attr-key">[title]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.title") }}
                             </template>
                             <a-input
-                                v-model:model-value="form.title"
+                                v-model:model-value="form.basics.title"
                                 @change="renameDoc"
                                 allow-clear
                             />
@@ -362,30 +484,34 @@ onUpdated(() => {
                         <a-form-item field="name">
                             <template #label>
                                 {{ $t("name") }}
+                                <br />
+                                <span class="attr-key">[name]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.name") }}
                             </template>
                             <a-input
-                                v-model:model-value="form.name"
+                                v-model:model-value="form.basics.name"
                                 @change="value => updateNativeAttr('name', value)"
                                 allow-clear
                             />
                         </a-form-item>
                     </a-col>
                     <a-col
-                        :sm="12"
                         :xs="24"
+                        :md="12"
                     >
                         <a-form-item field="alias">
                             <template #label>
                                 {{ $t("alias") }}
+                                <br />
+                                <span class="attr-key">[alias]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.alias") }}
                             </template>
                             <a-input-tag
-                                v-model:model-value="form.alias"
+                                v-model:model-value="form.basics.alias"
                                 @change="value => updateNativeAttr('alias', value as string[])"
                                 style="text-align: left"
                                 allow-clear
@@ -393,18 +519,20 @@ onUpdated(() => {
                         </a-form-item>
                     </a-col>
                     <a-col
-                        :sm="12"
                         :xs="24"
+                        :md="12"
                     >
                         <a-form-item field="tags">
                             <template #label>
                                 {{ $t("tags") }}
+                                <br />
+                                <span class="attr-key">[tags]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.tags") }}
                             </template>
                             <a-input-tag
-                                v-model:model-value="form.tags"
+                                v-model:model-value="form.basics.tags"
                                 @change="value => updateNativeAttr('tags', value as string[])"
                                 style="text-align: left"
                                 allow-clear
@@ -416,12 +544,14 @@ onUpdated(() => {
                         <a-form-item field="bookmark">
                             <template #label>
                                 {{ $t("bookmark") }}
+                                <br />
+                                <span class="attr-key">[bookmark]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.bookmark") }}
                             </template>
                             <a-select
-                                v-model:model-value="form.bookmark"
+                                v-model:model-value="form.basics.bookmark"
                                 @change="value => updateNativeAttr('bookmark', value as string)"
                                 :loading="loading"
                                 :options="options"
@@ -436,12 +566,14 @@ onUpdated(() => {
                         <a-form-item field="memo">
                             <template #label>
                                 {{ $t("memo") }}
+                                <br />
+                                <span class="attr-key">[memo]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.memo") }}
                             </template>
                             <a-textarea
-                                v-model:model-value="form.memo"
+                                v-model:model-value="form.basics.memo"
                                 @change="value => updateNativeAttr('memo', value)"
                                 class="textarea"
                                 auto-size
@@ -469,7 +601,7 @@ onUpdated(() => {
                     </a-button>
                 </template>
 
-                <a-row :gutter="16">
+                <a-row :gutter="8">
                     <a-col
                         v-for="(attr, index) of form.customs"
                         :span="24"
@@ -477,6 +609,7 @@ onUpdated(() => {
                         <a-divider
                             v-if="index !== 0"
                             class="divider"
+                            margin="0.5em"
                         />
                         <a-form-item
                             class="form-item-custom"
@@ -503,7 +636,10 @@ onUpdated(() => {
                                 >
                                     <template #prepend>custom-</template>
                                 </a-input>
-                                <a-divider class="divider" />
+                                <a-divider
+                                    class="divider"
+                                    margin="0.5em"
+                                />
                             </template>
 
                             <a-textarea
@@ -521,20 +657,22 @@ onUpdated(() => {
                 :header="$t('attributes.other')"
                 :key="3"
             >
-                <a-row :gutter="16">
+                <a-row :gutter="8">
                     <a-col
                         :sm="12"
                         :xs="24"
                     >
-                        <a-form-item field="icon">
+                        <a-form-item field="id">
                             <template #label>
                                 {{ $t("id") }}
+                                <br />
+                                <span class="attr-key">[id]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.id") }}
                             </template>
                             <a-input
-                                v-model:model-value="form.id"
+                                v-model:model-value="form.others.id"
                                 disabled
                             />
                         </a-form-item>
@@ -547,12 +685,14 @@ onUpdated(() => {
                         <a-form-item field="icon">
                             <template #label>
                                 {{ $t("icon") }}
+                                <br />
+                                <span class="attr-key">[icon]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.icon") }}
                             </template>
                             <a-input
-                                v-model:model-value="form.icon"
+                                v-model:model-value="form.others.icon"
                                 @change="value => updateNativeAttr('icon', value)"
                                 allow-clear
                             />
@@ -563,12 +703,14 @@ onUpdated(() => {
                         <a-form-item field="scroll">
                             <template #label>
                                 {{ $t("scroll") }}
+                                <br />
+                                <span class="attr-key">[scroll]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.scroll") }}
                             </template>
                             <a-input
-                                v-model:model-value="form.scroll"
+                                v-model:model-value="form.others.scroll"
                                 @change="value => updateNativeAttr('scroll', value)"
                                 allow-clear
                             />
@@ -579,13 +721,35 @@ onUpdated(() => {
                         <a-form-item field="title-img">
                             <template #label>
                                 {{ $t("title-img") }}
+                                <br />
+                                <span class="attr-key">[title-img]</span>
                             </template>
                             <template #help>
                                 {{ $t("help.title-img") }}
                             </template>
                             <a-input
-                                v-model:model-value="form['title-img']"
+                                v-model:model-value="form.others['title-img']"
                                 @change="value => updateNativeAttr('title-img', value)"
+                                allow-clear
+                            />
+                        </a-form-item>
+                    </a-col>
+
+                    <!-- 未知属性 -->
+                    <a-col
+                        v-for="(value, key, index) in form.unknowns"
+                        :span="24"
+                    >
+                        <a-divider
+                            v-if="index === 0"
+                            class="divider"
+                            margin="0.5em"
+                        />
+                        <a-form-item :field="key as string">
+                            <template #label> [{{ key }}] </template>
+                            <a-input
+                                v-model:model-value="form.unknowns[key]"
+                                @change="value => updateNativeAttr(key as string, value)"
                                 allow-clear
                             />
                         </a-form-item>
@@ -616,6 +780,20 @@ onUpdated(() => {
                 color: var(--color-text-2);
             }
 
+            /* 表单标签 */
+            :deep(.arco-form-item-label-col) {
+                padding-right: 0.5em;
+            }
+            :deep(.arco-form-item-label) {
+                line-height: 1.5;
+                text-align: right;
+            }
+
+            /* 表单标签中的属性键名 */
+            .attr-key {
+                color: var(--color-text-4);
+            }
+
             .form-item-custom {
                 // 自定义属性输入框框倒置
                 :deep(.arco-form-item-wrapper-col) {
@@ -623,7 +801,6 @@ onUpdated(() => {
                 }
             }
             .divider {
-                margin: 0.5em;
             }
 
             .textarea {
