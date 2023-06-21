@@ -1,27 +1,25 @@
+/**
+ * Copyright (C) 2023 Zuoqiu Yingyi
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 import { ArcoLang } from '@arco-design/web-vue/es/locale/interface';
 
 import arco_en from '@arco-design/web-vue/es/locale/lang/en-us';
 import arco_en_Hans from '@arco-design/web-vue/es/locale/lang/zh-cn';
 import arco_en_Hant from '@arco-design/web-vue/es/locale/lang/zh-tw';
-
-/* 映射语言 */
-export function mapLang(lang: string): string {
-    switch (lang) {
-        case "zh_CN":
-            lang = "zh-Hans";
-            break;
-        case "zh_CHT":
-            lang = "zh-Hant";
-            break;
-        case "es_ES":
-        case "fr_FR":
-        case "en_US":
-        default:
-            lang = "en";
-            break;
-    }
-    return lang;
-}
 
 /* 获得 Arco 内置的语言包 */
 export function getArcoLang(lang: string): ArcoLang {
@@ -34,27 +32,4 @@ export function getArcoLang(lang: string): ArcoLang {
         default:
             return arco_en;
     }
-}
-
-/* 映射地区 */
-export function mapLocal(local: string): string {
-    switch (local) {
-        case "zh_CN":
-        case "zh_CHT":
-            local = "zh";
-            break;
-        case "es_ES":
-            local = "es";
-            break;
-        case "fr_FR":
-            local = "fr";
-            break;
-        case "en_US":
-            local = "en";
-            break;
-        default:
-            local = local.split('_').shift()!;
-            break;
-    }
-    return local;
 }

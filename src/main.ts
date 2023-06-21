@@ -7,15 +7,16 @@ import { createI18n } from "vue-i18n";
 import ArcoVue from "@arco-design/web-vue";
 import ArcoVueIcon from "@arco-design/web-vue/es/icon";
 
+import { mapLang } from "@workspace/utils/locale/language";
+
 /* 组件 */
 import App from "./App.vue";
 
-import { Client } from "./client/Client";
-import { mapLang } from "./utils/language";
+import { Client } from "@workspace/apis/siyuan/client/Client";
 import { setThemeMode } from "./utils/theme";
 
 /* 类型 */
-import { ISiyuan } from "./types/siyuan/siyuan";
+import { ISiyuan } from "./types/siyuan";
 import { IData } from "./types/data";
 
 /* 语言包 */
