@@ -1,28 +1,25 @@
-import "@arco-design/web-vue/dist/arco.css";
-
-import "./style.css";
-
-import { createApp, reactive } from "vue";
-import { createI18n } from "vue-i18n";
 import ArcoVue from "@arco-design/web-vue";
 import ArcoVueIcon from "@arco-design/web-vue/es/icon";
+import { Client } from "@siyuan-community/siyuan-sdk";
+import { createApp, reactive } from "vue";
+import { createI18n } from "vue-i18n";
 
 import { mapLang } from "@workspace/utils/locale/language";
 
-/* 组件 */
-import App from "./App.vue";
-
-import { Client } from "@workspace/apis/siyuan/client/Client";
 import { setThemeMode } from "./utils/theme";
 
-/* 类型 */
-import { ISiyuan } from "./types/siyuan";
-import { IData } from "./types/data";
+import App from "./App.vue";
 
-/* 语言包 */
 import en from "./locales/en.json";
 import zh_Hans from "./locales/zh-Hans.json";
 import zh_Hant from "./locales/zh-Hant.json";
+
+import type { ISiyuan } from "@workspace/types/siyuan";
+
+import type { IData } from "./types/data";
+
+import "@arco-design/web-vue/dist/arco.css";
+import "./style.css";
 
 async function init() {
     /* 配置 */
@@ -43,16 +40,18 @@ async function init() {
     });
 
     /* 客户端 */
-    const client = new Client();
+    const client = new Client({
+        baseURL: globalThis.parent?.document.baseURI ?? globalThis.location.origin,
+    });
 
     if (import.meta.env.DEV) { // 开发环境
-        client.update(
-            new URL(import.meta.env.VITE_SIYUAN_SERVE),
-            import.meta.env.VITE_SIYUAN_TOKEN,
-        )
+        client._updateOptions({
+            baseURL: import.meta.env.VITE_SIYUAN_SERVE,
+            token: import.meta.env.VITE_SIYUAN_TOKEN,
+        }, "fetch");
     }
 
-    var siyuan: ISiyuan;
+    let siyuan: ISiyuan;
 
     if (globalThis.frameElement) { // 以 widget 或者 iframe 模式加载
         /* 获取思源应用对象 */
@@ -67,19 +66,19 @@ async function init() {
     }
     else {
         /* 获取思源应用对象 */
-        const config = (await client.getConf()).data.conf;
+        const config = (await client.getConf()).data.conf as unknown as ISiyuan["config"];
         const notebooks = (await client.lsNotebooks()).data.notebooks;
         siyuan = {
             config,
             notebooks,
-        };
+        } as ISiyuan;
 
         /* 获取挂件块 ID */
-        data.block_id = data.url.searchParams.get('id')!;
+        data.block_id = data.url.searchParams.get("id")!;
     }
 
     /* 设置主题 */
-    setThemeMode(siyuan.config.appearance.mode);
+    setThemeMode(siyuan.config?.appearance?.mode);
 
     /* 获取文档块 ID */
     const doc_info = (await client.getDocInfo({ id: data.block_id })).data;
@@ -91,11 +90,11 @@ async function init() {
     /* 获取文档路径 */
     const doc_data = (await client.sql({
         stmt: `SELECT box, path, hpath, created FROM blocks WHERE id = '${data.doc_id}';`,
-    })).data[0];
+    })).data[0]!;
     data.doc_path = doc_data.path;
     data.doc_notebook = doc_data.box;
-    data.paths.push(...`${doc_data.box}${doc_data.path.slice(0, -3)}`.split('/'));
-    data.hpaths.push(...`${siyuan.notebooks.find(notebook => notebook.id === doc_data.box)?.name}${doc_data.hpath}`.split('/'));
+    data.paths.push(...`${doc_data.box}${doc_data.path.slice(0, -3)}`.split("/"));
+    data.hpaths.push(...`${siyuan.notebooks.find((notebook) => notebook.id === doc_data.box)?.name}${doc_data.hpath}`.split("/"));
     data.ial.created = doc_data.created;
 
     /* 获取挂件块属性 */
@@ -103,10 +102,12 @@ async function init() {
     Object.assign(data.block_ial, block_ial);
 
     /* 读取保存在挂件块属性中的配置 */
-    Object.assign(data.block_config, JSON.parse(block_ial["custom-config"] ?? null));
+    if ("custom-config" in block_ial) {
+        Object.assign(data.block_config, JSON.parse(block_ial["custom-config"]));
+    }
 
     /* 本地化 */
-    const locale = mapLang(siyuan.config.lang); // 语言
+    const locale = mapLang(siyuan.config?.lang); // 语言
     const fallbackLocale = "en"; // 回退语言
 
     const messages = {
@@ -124,6 +125,7 @@ async function init() {
     const app = createApp(App);
 
     if (import.meta.env.DEV) { // 开发环境
+        // eslint-disable-next-line no-console
         console.log(data);
     }
 
@@ -148,10 +150,10 @@ async function init() {
     return app;
 }
 
-init().catch(error => {
+init().catch((error) => {
     console.warn(error);
 
     if (import.meta.env.PROD) { // 生产环境
         setTimeout(() => globalThis.location.reload(), 1000); // 重新加载
     }
-})
+});
