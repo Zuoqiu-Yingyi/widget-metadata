@@ -17,7 +17,7 @@
         "@workspace/utils": "workspace:^"
     },
     "devDependencies": {
-        "js-yaml": "^5.2.2",
+        "js-yaml": "^5.2.3",
         "moment": "^2.30.1"
     }
 }
